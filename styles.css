@@ -11,3 +11,7 @@ h1 {
 #myCanvas {
   background-color: #2ea;
 }
+
+button {
+    padding: 4px;
+}
