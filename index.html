@@ -1,30 +1,91 @@
 <!DOCTYPE html>
 <html>
    <head>
-      <title>World Editor</title>
+      <title>WEjs</title>
       <link rel="stylesheet" href="styles.css"/>
+
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;900&display=swap" rel="stylesheet">
    </head>
    <body>
-      <canvas id="myCanvas"></canvas>
-      <div id="controls">
-         <button onclick="dispose()">🗑️ Dispose</button>
-         <button onclick="save()">💾 Save</button>
+      <header>
+         <span class="title">
+            <span class="accent">WE</span>js
+         </span>
+         <div class="separator">|</div>
+         <div class="tab_buttons">
+            <button onclick="MainEditor.setTab('graph')">🌌 Graph</button>
+            <button onclick="MainEditor.setTab('web')">🌐 OpenStreetMap</button>
+         </div>
+         <div class="separator">|</div>
+         <div id="graphTab">
+            <button title="Edit points" id="graphBtn" onclick="setMode('graph')">📍</button>
+            <button title="Stop" id="stopBtn" onclick="setMode('stop')">🛑</button>
+            <button title="Crossing" id="crossingBtn" onclick="setMode('crossing')">🚶</button>
+         </div>
+         <div id="webTab">
+            <select id="locationsSelect"></select>
+            <button onclick="changeLocation()">🗺️ Voyager</button>
+         </div>
+         <div class="separator">|</div>
+         <div class="settings">
+            <input type="checkbox" onclick="MainEditor.updateAutoGenerate()" id="autoGenerateCheckbox">
+            <label for="autoGenerateCheckbox">Auto-Generate</label>
+            <button id="generateButton" onclick="generate()">Generate</button>
+         </div>
+      </header>
+      <canvas id="mainCanvas"></canvas>
+      <div id="viewSettings">
+         <button onclick="MainEditor.update3dMode()">3D</button>
+         <!-- <input type="range" name="" id="zoomSlider"> -->
+      </div>
+      
+      <div id="osmPanel" style="display: none;">
+         <textarea id="osmDataContainer" cols="50" rows="10" placeholder="Paste OSM data here"></textarea>
+         <div>
+            <button onclick="parseOsmData()">✔️</button>
+            <button onclick="MainEditor.closeOsmPanel()">❌</button>
+         </div>
       </div>
 
       <script src="js/world.js"></script>
-      <script src="js/graphEditor.js"></script>
       <script src="js/viewport.js"></script>
+      <script src="js/markings/marking.js"></script>
+      <script src="js/markings/stop.js"></script>
+      <script src="js/markings/start.js"></script>
+      <script src="js/markings/crossing.js"></script>
+      <script src="js/editors/mainEditor.js"></script>
+      <script src="js/editors/markingEditor.js"></script>
+      <script src="js/editors/graphEditor.js"></script>
+      <script src="js/editors/stopEditor.js"></script>
+      <script src="js/editors/crossingEditor.js"></script>
+      <script src="js/editors/startEditor.js"></script>
+      <script src="js/items/tree.js"></script>
+      <script src="js/items/building.js"></script>
       <script src="js/math/utils.js"></script>
       <script src="js/math/graph.js"></script>
+      <script src="js/math/osm.js"></script>
       <script src="js/primitives/point.js"></script>
       <script src="js/primitives/segment.js"></script>
       <script src="js/primitives/polygon.js"></script>
+      <script src="js/primitives/rect.js"></script>
       <script src="js/primitives/envelope.js"></script>
       <script>
-         myCanvas.width = 600;
-         myCanvas.height = 600;
 
-         const ctx = myCanvas.getContext("2d");
+         mainCanvas.width = window.innerWidth;
+         mainCanvas.height = window.innerHeight;
+
+         const locations = {
+            "Lille - Gare Lille Flandres": [ 50.6375, 3.0712 ],
+            "V. d'Ascq - Cité Scientifique": [ 50.6119, 3.1421 ],
+            "Paris - Champs de Mars": [ 48.8560, 2.2979 ]
+         }
+
+         setLocations();
+
+         const ctx = mainCanvas.getContext("2d");
+
 
          const graphString = localStorage.getItem("graph");
          const graphInfo = graphString ? JSON.parse(graphString) : null;
@@ -33,26 +94,97 @@
             : new Graph();
          const world = new World(graph);
 
-         const viewport = new Viewport(myCanvas);
-         const graphEditor = new GraphEditor(viewport, graph);
+         const viewport = new Viewport(mainCanvas);
+         const tools = {
+            graph: { button: graphBtn, editor: new GraphEditor(viewport, graph) },
+            stop: { button: stopBtn, editor: new StopEditor(viewport, world) },
+            crossing: { button: crossingBtn, editor: new CrossingEditor(viewport, world) }
+         };
+
+         let oldGraphHash = graph.hash();
+
+         MainEditor.setTab("graph");
+         setMode("graph")
 
          animate();
 
+
+         
+
          function animate() {
             viewport.reset();
-            world.generate();
-            world.draw(ctx);
+            if(graph.hash() != oldGraphHash) {
+               oldGraphHash = graph.hash();
+               if(autoGenerate) {
+                  world.generate();
+               }
+            }
+            const viewPoint = scale(viewport.getOffset(), -1);
+            world.draw(ctx, viewPoint);
             ctx.globalAlpha = 0.3;
-            graphEditor.display();
+            for (const tool of Object.values(tools)) {
+               tool.editor.display();
+            }
+            
             requestAnimationFrame(animate);
          }
 
          function dispose() {
-            graphEditor.dispose();
+            tools["graph"].editor.dispose();
+            world.markings.length = 0;
          }
 
          function save() {
             localStorage.setItem("graph", JSON.stringify(graph));
+         }
+
+         function setMode(mode) {
+            disableEditors();
+
+            tools[mode].button.style.backgroundColor = "white";
+            tools[mode].button.style.filter = "";
+            tools[mode].editor.enable();
+         }
+
+         function disableEditors() {
+            for (const tool of Object.values(tools)) {
+               tool.button.style.backgroundColor = "gray";
+               tool.button.style.filter = "grayscale(100%)";
+               tool.editor.disable();
+            }
+         }
+
+
+
+         function parseOsmData(data) {
+            const res = Osm.parseRoads(JSON.parse(data));
+            graph.points = res.points;
+            graph.segments = res.segments;
+         }
+
+         function generate() {
+            world.generate();
+         }
+
+         async function changeLocation() {
+            if(window.confirm("Changes will be lost")) {
+               dispose();
+
+               var coords = Object.values(locations)[locationsSelect.selectedIndex];
+               var rect = new Rect(coords[0], coords[1], coords[0], coords[1]);
+               rect.expands(0.001);
+               console.log(rect.toString());
+               parseOsmData(await osmRequest(coords[0], coords[1]));
+            }
+         }
+
+         function setLocations() {
+            Object.keys(locations).forEach(loc => {
+               var opt = document.createElement('option');
+               opt.value = loc;
+               opt.innerHTML = loc;
+               locationsSelect.appendChild(opt);
+            });
          }
       </script>
    </body>

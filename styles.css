@@ -1,17 +1,100 @@
-body {
-  background-color: black;
-  text-align: center;
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
 }
 
-h1 {
+
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+header {
+  position: absolute;
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.2), rgb(0, 0, 0, 0.5));
   color: white;
-  font-family: Arial, Helvetica, sans-serif;
+  z-index: 1;
+  
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-#myCanvas {
+.title {
+  font-weight: 900;
+  font-size: 24px;
+}
+
+.title .accent {
+  color: lightblue;
+}
+
+.separator {
+  color: lightgray;
+  user-select: none;
+  font-weight: 900;
+}
+
+#mainCanvas {
   background-color: #2ea;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+#graphTab {
+  gap: 8px;
 }
 
 button {
-    padding: 4px;
+  background-color: white;
+  padding: 5px 7px 7px 5px;
+  border: none;
+  font-family: inherit;
+  border-radius: 5px;
+  cursor: pointer;
+
+  transition: 0.1s;
+}
+
+button:hover {
+  background-color: rgb(240, 240, 240);
+}
+
+button:active {
+  background-color: #0075ff;
+  color: white;
+}
+
+#osmPanel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 100vw;
+}
+
+#viewSettings {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 32px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+input[type=range] {
+  appearance: slider-vertical;
 }
